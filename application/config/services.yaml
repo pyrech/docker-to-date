@@ -1,0 +1,51 @@
+# This file is the entry point to configure your own services.
+# Files in the packages/ subdirectory configure your dependencies.
+
+# Put parameters here that don't need to change on each machine where the app is deployed
+# https://symfony.com/doc/current/best_practices/configuration.html#application-related-configuration
+parameters:
+    repositories:
+        github:
+            jolicode/docker-starter:
+                paths:
+                    - README.md
+                    - infrastructure/docker/services/builder/Dockerfile
+
+services:
+    # default configuration for services in *this* file
+    _defaults:
+        autowire: true      # Automatically injects dependencies in your services.
+        autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+        bind:
+            array $repositories: '%repositories%'
+            string $githubUsername: '%env(GITHUB_USERNAME)%'
+            string $githubAccessToken: '%env(GITHUB_ACCESS_TOKEN)%'
+            string $sandboxPath: '%kernel.project_dir%/../%env(SANDBOX_DIRECTORY)%'
+            iterable $updaters: !tagged app.updater
+
+    _instanceof:
+        App\Updater\UpdaterInterface:
+            tags: ['app.updater']
+
+    # makes classes in src/ available to be used as services
+    # this creates a service per class whose id is the fully-qualified class name
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/DependencyInjection/'
+            - '../src/Entity/'
+            - '../src/Kernel.php'
+            - '../src/Tests/'
+
+    # controllers are imported separately to make sure services can be injected
+    # as action arguments even if you don't extend any base controller class
+    App\Controller\:
+        resource: '../src/Controller/'
+        tags: ['controller.service_arguments']
+
+    # add more service definitions when explicit configuration is needed
+    # please note that last definitions always *replace* previous ones
+
+    Github\Client:
+        calls:
+            - [authenticate, [!php/const Github\Client::AUTH_ACCESS_TOKEN, '%env(GITHUB_ACCESS_TOKEN)%']]
